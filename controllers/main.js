@@ -1,10 +1,50 @@
+const CustomAPIError = require('../errors/custom-error')
+const jwt = require('jsonwebtoken')
+
+// Check username and password in the POST request (login/register)
+// If both field exist, create a new JWT and send it to the front-end
+// Setup authentication so only request with JWT can access the dashboard
 const login = async (req, res) => {
-  res.send('Fake login/register/signup route')
+  const { username, password } = req.body
+
+  // Validation
+  if (!username || !password) {
+    throw new CustomAPIError('Please provide both email and password', 400)
+  }
+
+  // Dummy ID
+  const id = new Date().getDate()
+
+  // Generate token
+  // Secret have to be long and complex in production
+  // Since this is just a test, I decide to keep it simple
+  const token = jwt.sign({ id, username }, process.env.JWT_SECRET, {
+    expiresIn: '30d',
+  })
+
+  res.status(200).json({ msg: 'User created', token })
 }
 
 const dashboard = async (req, res) => {
-  const num = Math.floor(Math.random() * 100)
-  res.status(200).json({ msg: `Hello, Vincent`, secretNumber: num })
+  // Get token
+  const authHeader = req.headers.authorization
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new CustomAPIError('Invalid token', 401)
+  }
+
+  const token = authHeader.split(' ')[1]
+
+  // Validate token
+  try {
+    const decodedData = jwt.verify(token, process.env.JWT_SECRET)
+    const num = Math.floor(Math.random() * 100)
+    res
+      .status(200)
+      .json({ msg: `Hello, ${decodedData.username}`, secretNumber: num })
+  } catch (error) {
+    throw new CustomAPIError('Not authorized to access this route', 401)
+  }
 }
 
 module.exports = { login, dashboard }
